@@ -29,10 +29,14 @@
 
 
 #define BUTTON_PIN 5
+#define RPM_PIN 6
 #define LED_PIN     7
 #define NUM_LEDS    6
 #define animationTime 100
 #define animationTime2 1
+
+const int potentio_pin = A7; // use analog pin to read input from potentiometer
+
 CRGB leds[NUM_LEDS];
 
 int offset = 0;
@@ -48,13 +52,18 @@ unsigned long dTime; // delta time
 CRGB rainbow[NUM_LEDS];
 
 void setup() {
+  Serial.begin(9600);
   // put your setup code here, to run once:
   FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
 
   rainbowColors2();
 
   pinMode(BUTTON_PIN, INPUT_PULLUP);
-
+  pinMode(RPM_PIN, OUTPUT);
+  pinMode(potentio_pin, INPUT);
+  
+  analogWrite(RPM_PIN, 100);
+  
   cTime = millis();
   pTime = cTime;
 }
@@ -79,6 +88,8 @@ void rainbowColors2(){
 }
 
 int lastButtonState = HIGH;
+
+int lastPotValue = 0;
 void loop() {
   cTime = millis();
   dTime = cTime - pTime;
@@ -108,7 +119,22 @@ void loop() {
 //    break;
 //  }
 
-rainbowMode2();
+  rainbowMode2();
+
+  int value = analogRead(potentio_pin);          //Read and save analog value from potentiometer
+  Serial.print("Value: ");
+  Serial.print(value);
+  value = map(value, 0, 1023, 0, 255); //Map value 0-1023 to 0-255 (PWM)
+  Serial.print(" - Value mapped: ");
+  Serial.println(value);
+  if (value != lastPotValue){
+    if (value < 15)
+      analogWrite(RPM_PIN, 0);
+    else
+      analogWrite(RPM_PIN, value);          //Send PWM value to led
+  }
+  lastPotValue = value;
+  
   pTime = cTime;
 }
 
