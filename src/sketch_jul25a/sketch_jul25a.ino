@@ -1,3 +1,5 @@
+#include <dht_nonblocking.h>
+
 #include <bitswap.h>
 #include <chipsets.h>
 #include <color.h>
@@ -27,6 +29,12 @@
 #include <power_mgt.h>
 
 
+/// HUMIDITY AND TEMPERATURE 
+#define DHT_SENSOR_TYPE DHT_TYPE_11
+
+static const int DHT_SENSOR_PIN = 2;
+DHT_nonblocking dht_sensor( DHT_SENSOR_PIN, DHT_SENSOR_TYPE );
+/// HUMIDITY AND TEMPERATURE 
 
 #define BUTTON_PIN 5
 #define RPM_PIN 6
@@ -90,6 +98,29 @@ void rainbowColors2(){
 int lastButtonState = HIGH;
 
 int lastPotValue = 0;
+
+/*
+ * Poll for a measurement, keeping the state machine alive.  Returns
+ * true if a measurement is available.
+ */
+static bool measure_environment( float *temperature, float *humidity )
+{
+  static unsigned long measurement_timestamp = millis( );
+  /* Measure once every four seconds. */
+  if( millis( ) - measurement_timestamp > 3000ul )
+  {
+    
+    if( dht_sensor.measure( temperature, humidity ) == true )
+    {
+      measurement_timestamp = millis( );
+      return( true );
+    }
+  }
+
+  return( false );
+}
+
+
 void loop() {
   cTime = millis();
   dTime = cTime - pTime;
@@ -110,23 +141,14 @@ void loop() {
   }
   lastButtonState = buttonState;
 
-//  switch(mode){
-//  case 1:
-//    mode1();
-//    break;
-//  case 0: 
-//    rainbowMode2();
-//    break;
-//  }
-
   rainbowMode2();
 
   int value = analogRead(potentio_pin);          //Read and save analog value from potentiometer
-  Serial.print("Value: ");
-  Serial.print(value);
+//  Serial.print("Value: ");
+//  Serial.print(value);
   value = map(value, 0, 1023, 0, 255); //Map value 0-1023 to 0-255 (PWM)
-  Serial.print(" - Value mapped: ");
-  Serial.println(value);
+//  Serial.print(" - Value mapped: ");
+//  Serial.println(value);
   if (value != lastPotValue){
     if (value < 15)
       analogWrite(RPM_PIN, 0);
@@ -134,8 +156,26 @@ void loop() {
       analogWrite(RPM_PIN, value);          //Send PWM value to led
   }
   lastPotValue = value;
+
+
+  float temperature;
+  float humidity;
+
+  /* Measure temperature and humidity.  If the functions returns
+     true, then a measurement is available. */
+  if( measure_environment( &temperature, &humidity ) == true )
+  {
+    Serial.print( "T = " );
+    Serial.print( temperature, 1 );
+    Serial.print( " deg. C, H = " );
+    Serial.print( humidity, 1 );
+    Serial.println( "%" );
+  }
   
   pTime = cTime;
+
+
+  
 }
 
 #define RAINBOW_TIME 200
